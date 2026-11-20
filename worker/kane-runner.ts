@@ -22,14 +22,52 @@ export interface KaneRunnerConfig {
 }
 
 /**
+ * Resolves the Kane CLI entrypoint directly to Node + kane-cli.cjs on Windows
+ * so we NEVER use `shell: true` (which mangles spaces/quotes in natural-language objectives).
+ */
+function resolveKaneExecutable(
+  customPath?: string,
+): { command: string; prefixArgs: string[] } {
+  const configured = customPath || process.env.KANE_CLI_PATH?.trim();
+
+  if (configured && configured !== "kane-cli" && configured !== "kane-cli.cmd") {
+    if (configured.endsWith(".cjs") || configured.endsWith(".js")) {
+      return { command: process.execPath, prefixArgs: [configured] };
+    }
+    return { command: configured, prefixArgs: [] };
+  }
+
+  if (process.platform === "win32") {
+    const appData = process.env.APPDATA;
+    if (appData) {
+      const cjsEntry = path.join(
+        appData,
+        "npm",
+        "node_modules",
+        "@testmuai",
+        "kane-cli",
+        "bin",
+        "kane-cli.cjs",
+      );
+      if (fs.existsSync(cjsEntry)) {
+        return { command: process.execPath, prefixArgs: [cjsEntry] };
+      }
+    }
+  }
+
+  return { command: "kane-cli", prefixArgs: [] };
+}
+
+/**
  * Safely invokes `kane-cli run --agent --assertion-mode dom --final-validation on`
  * with an ephemeral secret variables file, hard outer timeout, and safe stop support.
  */
 export async function runKaneVerification(
   config: KaneRunnerConfig,
 ): Promise<ParsedKaneOutput> {
-  const timeoutSeconds = config.timeoutSeconds ?? Number(process.env.KANE_TIMEOUT_SECONDS || 120);
-  const maxSteps = config.maxSteps ?? Number(process.env.KANE_MAX_STEPS || 25);
+  const timeoutSeconds =
+    config.timeoutSeconds ?? Number(process.env.KANE_TIMEOUT_SECONDS || 180);
+  const maxSteps = config.maxSteps ?? Number(process.env.KANE_MAX_STEPS || 20);
   const headless = config.headless ?? process.env.WORKER_HEADLESS === "true";
 
   // Write ephemeral variables file (deleted in finally) so credentials never appear in prompts or argv
@@ -44,10 +82,10 @@ export async function runKaneVerification(
   fs.writeFileSync(varsFile, JSON.stringify(varsPayload), { mode: 0o600 });
 
   const objective = buildDemoPortalVerificationObjective(config.serviceName);
-  const defaultBin = process.platform === "win32" ? "kane-cli.cmd" : "kane-cli";
-  const bin = config.kaneCliPath || process.env.KANE_CLI_PATH || defaultBin;
+  const { command, prefixArgs } = resolveKaneExecutable(config.kaneCliPath);
 
   const args = [
+    ...prefixArgs,
     "run",
     objective,
     "--url",
@@ -75,8 +113,8 @@ export async function runKaneVerification(
       let timedOut = false;
       let settled = false;
 
-      const child = spawn(bin, args, {
-        shell: process.platform === "win32",
+      const child = spawn(command, args, {
+        shell: false,
         windowsHide: true,
         stdio: ["ignore", "pipe", "pipe"],
       });
@@ -89,15 +127,21 @@ export async function runKaneVerification(
         settled = true;
         clearTimeout(watchdog);
         if (stopPoller) clearInterval(stopPoller);
-        resolve(
-          parseKaneAgentOutput({
-            stdout,
-            stderr,
-            exitCode,
-            timedOut,
-            spawnError,
-          }),
+
+        const parsed = parseKaneAgentOutput({
+          stdout,
+          stderr,
+          exitCode,
+          timedOut,
+          spawnError,
+        });
+        console.log(
+          `[kane] exit=${exitCode} timedOut=${timedOut} verdict=${parsed.verdict} runId=${parsed.runId ?? "none"} events=${parsed.rawEventCount}`,
         );
+        if (parsed.conciseError) {
+          console.log(`[kane] note: ${parsed.conciseError}`);
+        }
+        resolve(parsed);
       };
 
       const watchdog = setTimeout(() => {
@@ -108,7 +152,7 @@ export async function runKaneVerification(
           // ignore
         }
         finish(3);
-      }, (timeoutSeconds + 15) * 1000);
+      }, (timeoutSeconds + 20) * 1000);
 
       const stopPoller = config.checkStopRequested
         ? setInterval(async () => {

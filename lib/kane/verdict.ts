@@ -238,12 +238,12 @@ export function parseKaneAgentOutput(params: {
  */
 export function buildDemoPortalVerificationObjective(serviceName: string): string {
   return [
-    `Open the LASTCALL controlled demo billing portal for ${serviceName}.`,
-    `If the sign-in form is visible, enter {{portal_email}} into the email field, enter {{portal_password}} into the password field, and click Sign in.`,
-    `Navigate to the Subscription Status billing page (/billing).`,
-    `Verify that the subscription status text is exactly "Cancelled".`,
-    `Verify that no Next Renewal Date is shown on the page.`,
-    `Verify that a cancellation confirmation message containing "Cancellation confirmed" is visible.`,
-    `If the status is still Active or any condition is missing, fail the verification and explain exactly which condition was not met.`,
+    `Open the demo billing portal for ${serviceName}.`,
+    `If the Sign in form is visible, enter {{portal_email}} into Email address, enter {{portal_password}} into Password, and click Sign in.`,
+    `On the Subscription Status billing page, verify three conditions:`,
+    `1. Subscription Status text is exactly 'Cancelled'.`,
+    `2. No Next Renewal Date is displayed.`,
+    `3. A confirmation message containing 'Cancellation confirmed' is visible.`,
+    `If Subscription Status is still 'Active' or any condition is missing, fail immediately and explain which condition failed.`,
   ].join(" ");
 }
