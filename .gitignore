@@ -29,6 +29,7 @@ tmp/
 output-*/
 playwright-report/
 test-results/
+demo-portal/fixtures/state.json
 
 # TypeScript
 *.tsbuildinfo
