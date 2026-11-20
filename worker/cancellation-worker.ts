@@ -193,7 +193,6 @@ async function processNextAuthorisedJob(): Promise<boolean> {
         serviceName: sub.service_name,
         portalEmail: DEMO_PORTAL_EMAIL,
         portalPassword: DEMO_PORTAL_PASSWORD,
-        headless: HEADLESS,
         checkStopRequested,
       });
     },

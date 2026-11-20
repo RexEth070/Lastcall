@@ -68,16 +68,20 @@ export async function runKaneVerification(
   const timeoutSeconds =
     config.timeoutSeconds ?? Number(process.env.KANE_TIMEOUT_SECONDS || 180);
   const maxSteps = config.maxSteps ?? Number(process.env.KANE_MAX_STEPS || 20);
-  const headless = config.headless ?? process.env.WORKER_HEADLESS === "true";
+  // Always run Kane CLI headless by default so it never collides with an open Chrome profile;
+  // Playwright browser agent stays visible when WORKER_HEADLESS=false for demo recording.
+  const headless = config.headless ?? process.env.KANE_HEADLESS !== "false";
 
-  // Write ephemeral variables file (deleted in finally) so credentials never appear in prompts or argv
+  // Write ephemeral variables file (deleted in finally).
+  // Use secret: false for local demo-portal fixture credentials so Kane CLI runs locally
+  // without blocking on HyperExecute Secrets API.
   const varsFile = path.join(
     os.tmpdir(),
     `lastcall-kane-vars-${crypto.randomBytes(6).toString("hex")}.json`,
   );
   const varsPayload = {
     portal_email: { value: config.portalEmail, secret: false },
-    portal_password: { value: config.portalPassword, secret: true },
+    portal_password: { value: config.portalPassword, secret: false },
   };
   fs.writeFileSync(varsFile, JSON.stringify(varsPayload), { mode: 0o600 });
 
