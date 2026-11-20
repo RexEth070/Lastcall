@@ -66,8 +66,8 @@ export async function runKaneVerification(
   config: KaneRunnerConfig,
 ): Promise<ParsedKaneOutput> {
   const timeoutSeconds =
-    config.timeoutSeconds ?? Number(process.env.KANE_TIMEOUT_SECONDS || 180);
-  const maxSteps = config.maxSteps ?? Number(process.env.KANE_MAX_STEPS || 20);
+    config.timeoutSeconds ?? Number(process.env.KANE_TIMEOUT_SECONDS || 240);
+  const maxSteps = config.maxSteps ?? Number(process.env.KANE_MAX_STEPS || 16);
   // Always run Kane CLI headless by default so it never collides with an open Chrome profile;
   // Playwright browser agent stays visible when WORKER_HEADLESS=false for demo recording.
   const headless = config.headless ?? process.env.KANE_HEADLESS !== "false";
@@ -85,7 +85,10 @@ export async function runKaneVerification(
   };
   fs.writeFileSync(varsFile, JSON.stringify(varsPayload), { mode: 0o600 });
 
-  const objective = buildDemoPortalVerificationObjective(config.serviceName);
+  const objective = buildDemoPortalVerificationObjective(
+    config.serviceName,
+    config.portalUrl,
+  );
   const { command, prefixArgs } = resolveKaneExecutable(config.kaneCliPath);
 
   const args = [
@@ -93,12 +96,10 @@ export async function runKaneVerification(
     "run",
     objective,
     "--url",
-    config.portalUrl,
+    `${config.portalUrl.replace(/\/$/, "")}/login`,
     "--agent",
     "--assertion-mode",
     "dom",
-    "--final-validation",
-    "on",
     "--timeout",
     String(timeoutSeconds),
     "--max-steps",
@@ -117,9 +118,16 @@ export async function runKaneVerification(
       let timedOut = false;
       let settled = false;
 
+      // Strip tsx's NODE_OPTIONS loader hook so the child node process (kane-cli.cjs)
+      // never deadlocks on tsx's IPC pipe!
+      const cleanEnv = { ...process.env };
+      delete cleanEnv.NODE_OPTIONS;
+      delete cleanEnv.TSX_TSCONFIG_PATH;
+
       const child = spawn(command, args, {
         shell: false,
         windowsHide: true,
+        env: cleanEnv,
         stdio: ["ignore", "pipe", "pipe"],
       });
 

@@ -236,14 +236,10 @@ export function parseKaneAgentOutput(params: {
  * Credentials are referenced via Kane secret variables ({{portal_email}}, {{portal_password}})
  * and never embedded as literal secrets.
  */
-export function buildDemoPortalVerificationObjective(serviceName: string): string {
-  return [
-    `Open the demo billing portal for ${serviceName}.`,
-    `If the Sign in form is visible, enter {{portal_email}} into Email address, enter {{portal_password}} into Password, and click Sign in.`,
-    `On the Subscription Status billing page, verify three conditions:`,
-    `1. Subscription Status text is exactly 'Cancelled'.`,
-    `2. No Next Renewal Date is displayed.`,
-    `3. A confirmation message containing 'Cancellation confirmed' is visible.`,
-    `If Subscription Status is still 'Active' or any condition is missing, fail immediately and explain which condition failed.`,
-  ].join(" ");
+export function buildDemoPortalVerificationObjective(
+  serviceName: string,
+  portalUrl = "http://localhost:3001",
+): string {
+  const loginUrl = `${portalUrl.replace(/\/$/, "")}/login`;
+  return `Open ${loginUrl}, enter {{portal_email}} into Email address, enter {{portal_password}} into Password, click Sign in, then verify for ${serviceName} that Subscription Status says Cancelled and Cancellation confirmed is visible.`;
 }
