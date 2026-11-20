@@ -2,18 +2,19 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Activity,
   CreditCard,
   FileCheck2,
   FlaskConical,
   LayoutDashboard,
+  LogOut,
   Menu,
   ShieldCheck,
   X,
 } from "lucide-react";
-import { DEMO_DATA_BANNER_LABEL } from "@/lib/demo-data";
+import type { AuthenticatedSession } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
 import { EmptyState, ErrorState, PageLoadingSkeleton } from "@/components/ui/state-views";
 
@@ -49,26 +50,22 @@ export function PreviewStateGate({
 }) {
   const { mode, setMode } = usePreviewMode();
 
-  if (mode === "loading") {
-    return <PageLoadingSkeleton />;
-  }
-
+  if (mode === "loading") return <PageLoadingSkeleton />;
   if (mode === "empty") {
     return (
       <EmptyState
         title={emptyTitle}
         description={emptyDescription}
-        actionLabel="Restore demo preview records"
+        actionLabel="Restore view"
         onAction={() => setMode("default")}
       />
     );
   }
-
   if (mode === "error") {
     return (
       <ErrorState
         title="Simulated preview error state"
-        description="LASTCALL failed to fetch subscription data. No cancellation was started and no status was modified."
+        description="LASTCALL failed to fetch data. No cancellation was started and no status was modified."
         onRetry={() => setMode("default")}
       />
     );
@@ -77,19 +74,38 @@ export function PreviewStateGate({
   return <>{children}</>;
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  session,
+  children,
+}: {
+  session: AuthenticatedSession;
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [signingOut, setSigningOut] = React.useState(false);
   const [previewMode, setPreviewMode] = React.useState<PreviewMode>("default");
 
   React.useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
 
+  async function handleSignOut() {
+    setSigningOut(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.push("/onboarding");
+      router.refresh();
+    } finally {
+      setSigningOut(false);
+    }
+  }
+
   const navContent = (
     <div className="flex h-full flex-col justify-between">
       <div>
-        <div className="flex items-center justify-between px-5 py-5 border-b border-white/10">
+        <div className="flex items-center justify-between border-b border-white/10 px-5 py-5">
           <Link
             href="/"
             className="flex items-center gap-2.5 text-white focus-visible:outline-white"
@@ -143,16 +159,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <div className="border-t border-white/10 p-4">
         <div className="rounded-lg border border-white/10 bg-[#111b2e] p-3.5 text-xs text-slate-300">
-          <p className="font-medium text-white">Seeded demo mode</p>
-          <p className="mt-1 text-slate-400 leading-relaxed">
-            Explicit consent required before any browser action. Kane CLI verifies every outcome.
+          <div className="flex items-center justify-between gap-2">
+            <p className="truncate font-medium text-white">
+              {session.displayName}
+            </p>
+            {session.isDemoUser && (
+              <span className="shrink-0 rounded bg-amber-400/20 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-amber-300">
+                DEMO
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 truncate font-mono text-[11px] text-slate-400">
+            {session.email}
           </p>
-          <Link
-            href="/onboarding"
-            className="mt-3 inline-flex min-h-[44px] w-full items-center justify-center rounded-md border border-white/15 px-3 text-xs font-medium text-slate-200 hover:bg-white/10"
+          <p className="mt-2 text-[11px] text-slate-400">
+            Supabase RLS active · User-scoped records
+          </p>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            disabled={signingOut}
+            className="mt-3 inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-md border border-white/15 px-3 text-xs font-medium text-slate-200 hover:bg-white/10 disabled:opacity-50 cursor-pointer"
           >
-            Account &amp; consent rules
-          </Link>
+            <LogOut className="h-3.5 w-3.5" aria-hidden />
+            <span>{signingOut ? "Signing out..." : "Sign out"}</span>
+          </button>
         </div>
       </div>
     </div>
@@ -187,7 +218,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
         </header>
 
-        {/* Mobile Drawer (solid scrim, no heavy GPU blur) */}
+        {/* Mobile Drawer */}
         {mobileOpen && (
           <div
             className="fixed inset-0 z-50 flex lg:hidden"
@@ -208,45 +239,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Main Workspace */}
         <div className="flex min-h-screen flex-1 flex-col lg:pl-64">
-          {/* Honest Demo Data Banner + Phase 1 UI State Inspector */}
-          <div className="border-b border-amber-300/80 bg-amber-50 px-4 py-2.5 sm:px-6 lg:px-8">
-            <div className="mx-auto flex max-w-6xl flex-col gap-2.5 md:flex-row md:items-center md:justify-between">
-              <div className="flex items-start gap-2.5 text-xs text-amber-950 sm:items-center">
+          {session.isDemoUser && (
+            <div className="border-b border-amber-300/80 bg-amber-50 px-4 py-2.5 sm:px-6 lg:px-8">
+              <div className="mx-auto flex max-w-6xl items-start gap-2.5 text-xs text-amber-950 sm:items-center">
                 <FlaskConical
                   className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 sm:mt-0"
                   aria-hidden
                 />
-                <span>{DEMO_DATA_BANNER_LABEL}</span>
-              </div>
-              <div
-                className="flex flex-wrap items-center gap-1.5"
-                role="group"
-                aria-label="UI state preview controls"
-              >
-                <span className="mr-1 text-[11px] font-medium text-amber-900">
-                  UI state:
+                <span>
+                  <strong>Seeded demo account</strong> ({session.email}) — backed by live Supabase Postgres + RLS. Browser cancellations target our owned controlled demo billing portal fixture.
                 </span>
-                {(["default", "loading", "empty", "error"] as const).map(
-                  (stateKey) => (
-                    <button
-                      key={stateKey}
-                      type="button"
-                      onClick={() => setPreviewMode(stateKey)}
-                      className={cn(
-                        "min-h-[32px] rounded-md px-2.5 py-1 text-xs font-medium capitalize transition-colors cursor-pointer",
-                        previewMode === stateKey
-                          ? "bg-[#0b1220] text-white"
-                          : "border border-amber-300 bg-white text-amber-950 hover:bg-amber-100",
-                      )}
-                      aria-pressed={previewMode === stateKey}
-                    >
-                      {stateKey}
-                    </button>
-                  ),
-                )}
               </div>
             </div>
-          </div>
+          )}
 
           <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
             {children}

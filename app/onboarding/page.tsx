@@ -1,14 +1,25 @@
+"use client";
+
+import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
+  AlertCircle,
   ArrowLeft,
   ArrowRight,
+  Loader2,
   Lock,
   ShieldCheck,
   UserCheck,
 } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 const CONSENT_RULES = [
   "LASTCALL only attempts cancellation after you explicitly approve that exact subscription.",
@@ -18,6 +29,81 @@ const CONSENT_RULES = [
 ];
 
 export default function OnboardingPage() {
+  const router = useRouter();
+  const [authTab, setAuthTab] = React.useState<"login" | "signup">("login");
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [displayName, setDisplayName] = React.useState("");
+  const [demoLoading, setDemoLoading] = React.useState(false);
+  const [authLoading, setAuthLoading] = React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = React.useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = React.useState<
+    Record<string, string[] | undefined>
+  >({});
+
+  async function handleDemoSignIn() {
+    setDemoLoading(true);
+    setErrorMessage(null);
+    setInfoMessage(null);
+    try {
+      const res = await fetch("/api/auth/demo", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorMessage(data.error || "Unable to enter seeded demo mode.");
+        return;
+      }
+      router.push("/dashboard");
+      router.refresh();
+    } catch {
+      setErrorMessage("Network error while connecting to Supabase auth.");
+    } finally {
+      setDemoLoading(false);
+    }
+  }
+
+  async function handleAuthSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setAuthLoading(true);
+    setErrorMessage(null);
+    setInfoMessage(null);
+    setFieldErrors({});
+
+    try {
+      const endpoint =
+        authTab === "login" ? "/api/auth/login" : "/api/auth/signup";
+      const payload =
+        authTab === "login"
+          ? { email, password }
+          : { email, password, displayName: displayName || undefined };
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setErrorMessage(data.error || "Authentication failed.");
+        if (data.fieldErrors) setFieldErrors(data.fieldErrors);
+        return;
+      }
+
+      if (authTab === "signup" && !data.signedIn) {
+        setInfoMessage(data.message);
+        return;
+      }
+
+      router.push("/dashboard");
+      router.refresh();
+    } catch {
+      setErrorMessage("Network error while signing in.");
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#f7f6f2]">
       <header className="border-b border-[#e4e1da] bg-white">
@@ -41,61 +127,214 @@ export default function OnboardingPage() {
       <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6 sm:py-14">
         <div className="max-w-2xl">
           <p className="font-mono text-xs font-semibold uppercase tracking-wider text-[#1d4ed8]">
-            Onboarding &amp; authorisation model
+            Authentication &amp; authorisation model
           </p>
           <h1 className="mt-2 text-3xl font-semibold text-slate-900">
-            Choose how to enter LASTCALL
+            Enter LASTCALL
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-slate-600 sm:text-base">
-            Enter the seeded demo workspace immediately with zero payment setup, or sign in once Supabase authentication is connected in Phase 2.
+            Sign straight into the seeded hackathon judge demo account with zero payment setup, or sign in with your own Supabase-isolated account.
           </p>
         </div>
 
-        <div className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Card className="border-[#1d4ed8]/30">
+        {errorMessage && (
+          <div
+            role="alert"
+            className="mt-6 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900"
+          >
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-700" aria-hidden />
+            <span>{errorMessage}</span>
+          </div>
+        )}
+
+        {infoMessage && (
+          <div
+            role="status"
+            className="mt-6 flex items-start gap-2.5 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950"
+          >
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#1d4ed8]" aria-hidden />
+            <span>{infoMessage}</span>
+          </div>
+        )}
+
+        <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
+          {/* Seeded Judge Demo Mode */}
+          <Card className="border-[#1d4ed8]/35 flex flex-col justify-between">
             <CardHeader>
               <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-[#1d4ed8]">
                 <UserCheck className="h-5 w-5" aria-hidden />
               </div>
-              <CardTitle>Demo preview workspace</CardTitle>
+              <CardTitle>Seeded judge demo account</CardTitle>
               <CardDescription>
-                Explore seeded subscriptions, Last Safe Moment deadlines, closed-loop recovery history, and the Evidence Vault right away.
+                One-click sign-in backed by a real Supabase Auth user and full Row Level Security — preloaded with realistic subscription fixtures.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="rounded-lg border border-amber-300/80 bg-amber-50 p-3 text-xs text-amber-950">
-                Phase 1 displays clearly labelled demo preview data. Live Supabase persistence and seeded judge login wire up in Phase 2.
-              </p>
-              <Link
-                href="/dashboard"
-                className={cn(buttonVariants({ variant: "primary" }), "w-full")}
+              <div className="rounded-lg border border-amber-300/80 bg-amber-50 p-3.5 text-xs text-amber-950 space-y-1">
+                <p className="font-semibold">Included demo fixtures:</p>
+                <p>
+                  CloudStream Pro (Controlled Demo Billing Portal), DesignForge trial, NoteSync AI (unknown policy guardrail), and FocusRead (MFA handoff sample).
+                </p>
+              </div>
+              <Button
+                variant="primary"
+                className="w-full"
+                onClick={handleDemoSignIn}
+                disabled={demoLoading || authLoading}
               >
-                <span>Enter demo dashboard</span>
-                <ArrowRight className="h-4 w-4" aria-hidden />
-              </Link>
+                {demoLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    <span>Signing into seeded demo...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Enter seeded demo account</span>
+                    <ArrowRight className="h-4 w-4" aria-hidden />
+                  </>
+                )}
+              </Button>
             </CardContent>
           </Card>
 
+          {/* Personal Supabase Account */}
           <Card>
             <CardHeader>
-              <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-[#efece5] text-slate-700">
-                <Lock className="h-5 w-5" aria-hidden />
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#efece5] text-slate-800">
+                  <Lock className="h-5 w-5" aria-hidden />
+                </div>
+                <div className="inline-flex rounded-lg border border-[#e4e1da] bg-[#f7f6f2] p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthTab("login");
+                      setFieldErrors({});
+                      setErrorMessage(null);
+                    }}
+                    className={`min-h-[36px] rounded-md px-3 text-xs font-medium cursor-pointer ${
+                      authTab === "login"
+                        ? "bg-white text-slate-900 shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Sign in
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthTab("signup");
+                      setFieldErrors({});
+                      setErrorMessage(null);
+                    }}
+                    className={`min-h-[36px] rounded-md px-3 text-xs font-medium cursor-pointer ${
+                      authTab === "signup"
+                        ? "bg-white text-slate-900 shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Create account
+                  </button>
+                </div>
               </div>
-              <CardTitle>Personal account sign-in</CardTitle>
+              <CardTitle>
+                {authTab === "login"
+                  ? "Sign in with email"
+                  : "Create isolated account"}
+              </CardTitle>
               <CardDescription>
-                Protected by Supabase Auth and strict Row Level Security so every user&apos;s subscriptions and private evidence stay isolated.
+                Every subscription, authorisation, and evidence record is isolated to your account via Supabase Row Level Security.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-lg border border-[#e4e1da] bg-[#f7f6f2] p-3 text-xs text-slate-600">
-                Authentication connects in Phase 2 (Supabase schema, RLS, and seeded judge credentials).
-              </div>
-              <span
-                aria-disabled="true"
-                className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg border border-[#e4e1da] bg-[#efece5] px-4 text-sm font-medium text-slate-500"
-              >
-                Available in Phase 2
-              </span>
+            <CardContent>
+              <form onSubmit={handleAuthSubmit} className="space-y-4" noValidate>
+                {authTab === "signup" && (
+                  <div>
+                    <label
+                      htmlFor="auth-display-name"
+                      className="block text-xs font-medium text-slate-700"
+                    >
+                      Display name
+                    </label>
+                    <input
+                      id="auth-display-name"
+                      type="text"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="Alex Rivera"
+                      className="mt-1.5 min-h-[44px] w-full rounded-lg border border-[#e4e1da] bg-white px-3.5 text-sm text-slate-900"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label
+                    htmlFor="auth-email"
+                    className="block text-xs font-medium text-slate-700"
+                  >
+                    Email address
+                  </label>
+                  <input
+                    id="auth-email"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="mt-1.5 min-h-[44px] w-full rounded-lg border border-[#e4e1da] bg-white px-3.5 text-sm text-slate-900"
+                  />
+                  {fieldErrors.email?.[0] && (
+                    <p className="mt-1 text-xs text-red-700">
+                      {fieldErrors.email[0]}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="auth-password"
+                    className="block text-xs font-medium text-slate-700"
+                  >
+                    Password (min 8 characters)
+                  </label>
+                  <input
+                    id="auth-password"
+                    type="password"
+                    required
+                    autoComplete={
+                      authTab === "login" ? "current-password" : "new-password"
+                    }
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="mt-1.5 min-h-[44px] w-full rounded-lg border border-[#e4e1da] bg-white px-3.5 text-sm text-slate-900"
+                  />
+                  {fieldErrors.password?.[0] && (
+                    <p className="mt-1 text-xs text-red-700">
+                      {fieldErrors.password[0]}
+                    </p>
+                  )}
+                </div>
+
+                <Button
+                  type="submit"
+                  variant="dark"
+                  className="w-full"
+                  disabled={authLoading || demoLoading}
+                >
+                  {authLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                      <span>Please wait...</span>
+                    </>
+                  ) : authTab === "login" ? (
+                    <span>Sign in</span>
+                  ) : (
+                    <span>Create account</span>
+                  )}
+                </Button>
+              </form>
             </CardContent>
           </Card>
         </div>
@@ -104,7 +343,7 @@ export default function OnboardingPage() {
           <CardHeader>
             <CardTitle>How agent authorisation works</CardTitle>
             <CardDescription>
-              Before we ever touch a billing page, LASTCALL enforces four non-negotiable guardrails.
+              Before LASTCALL touches any billing page, four non-negotiable guardrails apply.
             </CardDescription>
           </CardHeader>
           <CardContent>

@@ -1,0 +1,26 @@
+-- ============================================================================
+-- LASTCALL Reference Seed Script
+-- Note: In hosted Supabase, POST /api/auth/demo automatically provisions the
+-- seeded judge demo Auth user (DEMO_USER_EMAIL) and inserts these exact fixture
+-- subscriptions under real RLS ownership.
+-- If running manually against an existing user UUID, replace :demo_user_id.
+-- ============================================================================
+
+-- Example manual usage in SQL Editor after finding your demo user UUID:
+-- DO $$
+-- DECLARE v_uid UUID := '<paste-demo-user-uuid>';
+-- BEGIN
+--   INSERT INTO public.subscriptions (
+--     user_id, service_name, plan_name, account_label, amount_minor, currency,
+--     cadence, next_renewal_at, timezone, policy_type, notice_period_days,
+--     safety_buffer_hours, cancellation_policy_text, policy_confidence,
+--     status, is_controlled_demo_portal, portal_url, manual_fallback_url, notes
+--   ) VALUES (
+--     v_uid, 'CloudStream Pro (Demo Portal)', 'Creator Monthly',
+--     'alex.d***@cloudstream.test', 2400, 'USD', 'monthly',
+--     '2026-11-25T09:00:00Z', 'UTC', 'notice_period', 1, 48,
+--     'Controlled demo billing portal fixture. Cancellation must be completed at least 24 hours before renewal.',
+--     'verified', 'active', TRUE, 'http://localhost:3001/billing',
+--     'http://localhost:3001/billing', 'Primary controlled fixture for Kane CLI closed-loop verification demo.'
+--   );
+-- END $$;
