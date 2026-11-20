@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+demo-portal/node_modules/
+worker/node_modules/
+
+# Next.js
+.next/
+out/
+demo-portal/.next/
+demo-portal/out/
+build/
+
+# Environment & Secrets (NEVER commit)
+.env
+.env.local
+.env.*.local
+demo-portal/.env
+demo-portal/.env.local
+worker/.env
+worker/.env.local
+.testmuai/variables/
+
+# Logs & temporary Kane artifacts
+npm-debug.log*
+yarn-debug.log*
+*.log
+.tmp/
+tmp/
+output-*/
+playwright-report/
+test-results/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
