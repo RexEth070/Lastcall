@@ -287,10 +287,10 @@ export function DashboardClient({
                       </p>
                     </div>
                     <Link
-                      href="/subscriptions"
+                      href={`/subscriptions/${sub.id}`}
                       className="text-xs font-medium text-[#1d4ed8] hover:underline"
                     >
-                      Inspect details
+                      Plan &amp; authorise
                     </Link>
                   </div>
                 </div>

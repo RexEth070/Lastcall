@@ -1,11 +1,13 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
   AlertCircle,
   AlertTriangle,
   Archive,
   ArchiveRestore,
+  ArrowRight,
   CalendarClock,
   Database,
   ExternalLink,
@@ -16,7 +18,7 @@ import {
   Search,
   ShieldCheck,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/state-views";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -403,6 +405,16 @@ export function SubscriptionsClient({
                     </div>
 
                     <div className="space-y-2">
+                      <Link
+                        href={`/subscriptions/${sub.id}`}
+                        className={cn(
+                          buttonVariants({ variant: "primary", size: "sm" }),
+                          "w-full",
+                        )}
+                      >
+                        <span>Plan &amp; authorise</span>
+                        <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                      </Link>
                       <div className="grid grid-cols-2 gap-2">
                         <Button
                           variant="secondary"
